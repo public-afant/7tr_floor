@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Floor Plan Generator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #282934;
+      color: white;
+      font-family: 'Noto Sans KR', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 30px;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    #fileCount, #fileCountInline {
+      margin-left: 10px;
+      font-size: 1rem;
+      color: white;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 20px 0;
+    }
+
+    ul li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0;
+      background-color: #3a3b3e;
+      padding: 15px;
+      border-radius: 5px;
+      position: relative;
+    }
+
+    ul li span {
+      font-size: 1.2rem;
+      flex-grow: 1;
+      text-align: left;
+    }
+
+    ul li button {
+      background-color: #ff5c5c;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      padding: 8px 12px;
+    }
+
+    .btn-upload {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    .btn-upload:hover {
+      background-color: #0056b3;
+    }
+
+    button.generate {
+      margin-top: 30px;
+      padding: 15px 30px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+
+    button.generate:hover {
+      background-color: #0056b3;
+    }
+
+    .btn-download {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 15px 30px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .btn-download:hover {
+      background-color: #0056b3;
+    }
+
+    .btn-retry {
+      display: inline-block;
+      margin-top: 20px;
+      margin-right: 10px;
+      padding: 15px 30px;
+      background-color: #ff5c5c;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .btn-retry:hover {
+      background-color: #cc4949;
+    }
+
+    #modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    #modal iframe {
+      width: 80%;
+      height: 80%;
+      border: none;
+      background-color: white;
+      border-radius: 10px;
+    }
+
+    input[type="text"] {
+      display: none;
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    .drop-indicator {
+      position: absolute;
+      height: 2px;
+      background-color: #007bff;
+      width: 100%;
+      top: 0;
+      left: 0;
+      visibility: hidden;
+    }
+
+    ul li.dragging .drop-indicator {
+      visibility: visible;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="Logo.png" alt="Logo" style="width: 100px; display: block; margin: 0 auto;">
+    <h1>Floor Plan Generator</h1>
+    <label for="fileInput">
+      <div class="btn-upload">파일 업로드하기</div>
+    </label>
+    <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png">
+
+    <ul id="fileList" style="width: 100%;"></ul>
+    <input type="text" id="siteName" placeholder="현재 이름을 적어주세요" style="display: none; width: 100%; margin-top: 10px; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+    <button class="generate" id="generatePDF" style="display: none; width: 100%; background-color: #555; color: white; cursor: not-allowed;" disabled>PDF Generator</button>
+  </div>
+
+  <div id="modal">
+    <iframe id="pdfPreview"></iframe>
+    <div>
+      <button class="btn-retry" id="retry">Retry</button>
+      <a href="#" class="btn-download" id="download">Download</a>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+  <script src="./FontBold.js"></script>
+  <script src="./FontDefault.js"></script>
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const generatePDF = document.getElementById('generatePDF');
+    const modal = document.getElementById('modal');
+    const pdfPreview = document.getElementById('pdfPreview');
+    const retryButton = document.getElementById('retry');
+    const downloadButton = document.getElementById('download');
+
+    let files = [];
+    let pdfBlobUrl = "";
+
+    fileInput.addEventListener('change', (event) => {
+      files = Array.from(event.target.files).filter(file => {
+        const validExtensions = ["jpg", "jpeg", "png"];
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        return validExtensions.includes(fileExtension);
+      });
+      updateFileList();
+    });
+
+    function updateFileList() {
+      const siteNameInput = document.getElementById('siteName');
+      const generateButton = document.getElementById('generatePDF');
+
+      siteNameInput.addEventListener('input', () => {
+        if (siteNameInput.value.trim() === '') {
+          generateButton.style.backgroundColor = '#555';
+          generateButton.style.color = 'white';
+          generateButton.style.cursor = 'not-allowed';
+          generateButton.disabled = true;
+        } else {
+          generateButton.style.backgroundColor = '#007bff';
+          generateButton.style.color = 'white';
+          generateButton.style.cursor = 'pointer';
+          generateButton.disabled = false;
+        }
+      });
+
+      fileList.innerHTML = '';
+
+      if (files.length > 0) {
+        generateButton.style.display = 'block';
+        siteNameInput.style.display = 'block';
+      } else {
+        generateButton.style.display = 'none';
+        siteNameInput.style.display = 'none';
+      }
+
+      files.forEach((file, index) => {
+        const li = document.createElement('li');
+        li.setAttribute('draggable', true); // 드래그 가능 설정
+        li.dataset.index = index;
+
+        const span = document.createElement('span');
+        span.textContent = file.name;
+
+        const removeButton = document.createElement('button');
+        removeButton.textContent = 'X';
+        removeButton.onclick = () => {
+          files.splice(index, 1);
+          updateFileList();
+        };
+
+        const dropIndicator = document.createElement('div');
+        dropIndicator.classList.add('drop-indicator');
+        li.appendChild(dropIndicator);
+
+        li.appendChild(span);
+        li.appendChild(removeButton);
+        fileList.appendChild(li);
+
+        // 드래그 이벤트 핸들러 추가
+        li.addEventListener('dragstart', (e) => {
+          li.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', index);
+        });
+
+        li.addEventListener('dragover', (e) => {
+          e.preventDefault(); // 기본 동작 방지
+          li.querySelector('.drop-indicator').style.visibility = 'visible';
+        });
+
+        li.addEventListener('dragleave', (e) => {
+          li.querySelector('.drop-indicator').style.visibility = 'hidden';
+        });
+
+        li.addEventListener('drop', (e) => {
+          e.preventDefault();
+          li.querySelector('.drop-indicator').style.visibility = 'hidden';
+          const draggedIndex = e.dataTransfer.getData('text/plain');
+          const targetIndex = li.dataset.index;
+
+          // files 배열 순서 변경
+          const draggedFile = files[draggedIndex];
+          files.splice(draggedIndex, 1);
+          files.splice(targetIndex, 0, draggedFile);
+
+          updateFileList(); // 리스트 업데이트
+        });
+
+        li.addEventListener('dragend', () => {
+          li.classList.remove('dragging');
+        });
+      });
+    }
+
+    generatePDF.addEventListener('click', async () => {
+      const siteName = document.getElementById('siteName').value.trim();
+      if (!siteName) {
+        alert('현재 이름을 입력해주세요!');
+        return;
+      }
+
+      const pdf = new jsPDF({ useCORS: true }); // jsPDF 초기화
+      pdf.setProperties({ title: siteName });
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 10;
+      const usableWidth = pageWidth - 2 * margin;
+      const usableHeight = pageHeight - 2 * margin;
+      pdf.addFileToVFS("NotoSansKRBold.ttf", boldFont);
+      pdf.addFileToVFS("NotoSansKRDefault.ttf", defaultFont);
+      pdf.addFont("NotoSansKRBold.ttf", "NotoSansKR", "bold");
+      pdf.addFont("NotoSansKRDefault.ttf", "NotoSansKR", "normal");
+
+
+      for (let i = 0; i < files.length; i += 2) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        // 각 페이지 상단 우측에 현장 이름 추가
+        pdf.setFont("NotoSansKR", "bold");
+        pdf.setFontSize(10);
+        pdf.text(siteName, pageWidth - margin - pdf.getTextWidth(siteName), margin);
+
+        for (let j = 0; j < 2; j++) {
+          const fileIndex = i + j;
+          if (fileIndex >= files.length) break;
+
+          const file = files[fileIndex];
+          const fileNameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
+          const imageData = await readFileAsDataURL(file);
+
+          const yOffset = margin + 15 + j * (usableHeight / 2 - 10); // 여백 줄이기
+
+          // 도면 이름 표시 스타일 적용
+
+          pdf.setFont("NotoSansKR", "bold");
+          pdf.setFontSize(23); // 폰트 크기 유지
+          pdf.setFillColor(0, 0, 0);
+          pdf.setTextColor(255, 255, 255);
+
+          const textWidth = pdf.getTextWidth(fileNameWithoutExtension) + 6;
+          pdf.rect(margin, yOffset - 10, textWidth, 15, 'F');
+          pdf.text(fileNameWithoutExtension, margin + 3, yOffset);
+
+          // 이미지 삽입
+          const img = new Image();
+          img.src = imageData;
+
+          await new Promise((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('이미지 로드 실패'));
+          });
+
+          const imgWidth = usableWidth * 0.8;
+          const imgHeight = (imgWidth / img.width) * img.height;
+
+          const xPosition = (pageWidth - imgWidth) / 2;
+
+          pdf.addImage(imageData, 'JPEG', xPosition, yOffset + 5, imgWidth, imgHeight);
+        }
+      }
+
+      const pdfBlob = pdf.output('blob');
+      pdfBlobUrl = URL.createObjectURL(pdfBlob);
+
+      // iframe에 PDF 표시
+      pdfPreview.src = pdfBlobUrl;
+      modal.style.display = 'flex';
+
+      // 다운로드 링크 업데이트
+      downloadButton.href = pdfBlobUrl;
+      downloadButton.download = `${siteName}.pdf`;
+    });
+
+    retryButton.addEventListener('click', resetState);
+
+    downloadButton.addEventListener('click', resetState);
+
+    function resetState() {
+      // 업로드 파일 초기화
+      files = [];
+      fileInput.value = "";
+      fileList.innerHTML = "";
+
+      // 텍스트 입력 초기화
+      const siteNameInput = document.getElementById('siteName');
+      siteNameInput.value = "";
+      siteNameInput.style.display = 'none';
+
+      // 버튼 초기화
+      generatePDF.style.display = 'none';
+      generatePDF.style.backgroundColor = '#555';
+      generatePDF.style.color = 'white';
+      generatePDF.style.cursor = 'not-allowed';
+      generatePDF.disabled = true;
+
+      // 모달 닫기
+      modal.style.display = 'none';
+    }
+
+    function readFileAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(file);
+      });
+    }
+  </script>
+</body>
+</html>
