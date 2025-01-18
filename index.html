@@ -267,7 +267,8 @@
         li.dataset.index = index;
 
         const span = document.createElement('span');
-        span.textContent = file.name;
+        span.textContent = file.name.replace(/\.[^/.]+$/, ""); // 확장자 제거
+
 
         const removeButton = document.createElement('button');
         removeButton.textContent = 'X';
@@ -398,7 +399,7 @@
 
       // 다운로드 링크 업데이트
       downloadButton.href = pdfBlobUrl;
-      downloadButton.download = `${siteName}.pdf`;
+      downloadButton.download = `${siteName} 도면.pdf`;
     });
 
     retryButton.addEventListener('click', resetState);
